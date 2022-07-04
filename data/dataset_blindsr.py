@@ -58,12 +58,12 @@ class DatasetBlindSR(data.Dataset):
             rnd_w_H = random.randint(0, max(0, W - self.patch_size))
             img_H = img_H[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
 
-            if 'face' in img_name:
-                mode = random.choice([0, 4])
-                img_H = util.augment_img(img_H, mode=mode)
-            else:
-                mode = random.randint(0, 7)
-                img_H = util.augment_img(img_H, mode=mode)
+            # if 'face' in img_name:
+            mode = random.choice([0, 4])
+            img_H = util.augment_img(img_H, mode=mode)
+            # else:
+            #     mode = random.randint(0, 7)
+            #     img_H = util.augment_img(img_H, mode=mode)
 
             img_H = util.uint2single(img_H)
             if self.degradation_type == 'bsrgan':
