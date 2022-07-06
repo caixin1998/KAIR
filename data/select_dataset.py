@@ -77,6 +77,9 @@ def define_Dataset(dataset_opt):
 
     elif dataset_type in ['plainpatch']:
         from data.dataset_plainpatch import DatasetPlainPatch as D
+    
+    elif dataset_type in ["full"]:
+        from data.full_blindsr import FullBlindSR as D
 
     else:
         raise NotImplementedError('Dataset [{:s}] is not found.'.format(dataset_type))
