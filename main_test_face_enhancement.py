@@ -31,6 +31,7 @@ import cv2
 import glob
 import numpy as np
 import torch
+import argparse
 
 from utils.utils_alignfaces import warp_and_crop_face, get_reference_facial_points
 from utils import utils_image as util 
@@ -135,9 +136,20 @@ class faceenhancer_with_detection_alignment(object):
 
 
 if __name__=='__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-i',
+        '--input',
+        type=str,
+        default='inputs/whole_imgs',
+        help='Input image or folder. Default: inputs/whole_imgs')
+    parser.add_argument('-o', '--output', type=str, default='results', help='Output folder. Default: results')
+    args = parser.parse_args()
 
-    inputdir = os.path.join('testsets', 'real_faces')
-    outdir = os.path.join('testsets', 'real_faces_results')
+    # inputdir = os.path.join('/data1/GazeData/MPIIRes', 'MPIIFaceGaze', args.input)
+    # outdir = os.path.join('/data1/GazeData/MPIIRes', args.output)
+    inputdir = args.input
+    outdir = args.output
     os.makedirs(outdir, exist_ok=True)
 
     # whether use the face detection&alignment or not
@@ -159,14 +171,14 @@ if __name__=='__main__':
         if need_face_detection:
             # do the enhancement
             img_H, orig_faces, enhanced_faces = enhancer.process(img_L)
+            img_H = cv2.resize(img_H, (224,224))
+            # util.imsave(np.hstack((img_L, img_H)), os.path.join(outdir, img_name+'_comparison.png'))
+            util.imsave(img_H, os.path.join(outdir, img_name+'.png'))
+            # for m, (ef, of) in enumerate(zip(enhanced_faces, orig_faces)):
+            #     of = cv2.resize(of, ef.shape[:2])
+            #     util.imsave(np.hstack((of, ef)), os.path.join(outdir, img_name+'_face%02d'%m+'.png'))
+        # else:
+        #     # do the enhancement
+        #     img_H = enhancer.process(img_L)
 
-            util.imsave(np.hstack((img_L, img_H)), os.path.join(outdir, img_name+'_comparison.png'))
-            util.imsave(img_H, os.path.join(outdir, img_name+'_enhanced.png'))
-            for m, (ef, of) in enumerate(zip(enhanced_faces, orig_faces)):
-                of = cv2.resize(of, ef.shape[:2])
-                util.imsave(np.hstack((of, ef)), os.path.join(outdir, img_name+'_face%02d'%m+'.png'))
-        else:
-            # do the enhancement
-            img_H = enhancer.process(img_L)
-
-            util.imsave(img_H, os.path.join(outdir, img_name+'_enhanced_without_detection.png'))
+        #     util.imsave(img_H, os.path.join(outdir, img_name+'_enhanced_without_detection.png'))

@@ -1,3 +1,5 @@
 logs/
 superresolution/
 __pycache__/
+model_zoo
+*.cpython-38.pyc
