@@ -1,0 +1,1 @@
+python main_test_face_swinir.py -i /public/caixin/GazeData/MPIIRes/MPIIFaceGaze_test -o ../test -v ffhq_base_x4_gan --iter 150000
