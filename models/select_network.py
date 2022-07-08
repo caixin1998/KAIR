@@ -327,7 +327,13 @@ def define_F(opt, use_bn=False):
     netF.eval()  # No need to train, but need BP to input
     return netF
 
-
+def define_Gaze(opt):
+    from models.network_gaze import GazeRes18
+    net = GazeRes18()
+    net.eval()
+    for param in net.parameters():
+        param.requires_grad = False
+    return net
 """
 # --------------------------------------------
 # weights initialization

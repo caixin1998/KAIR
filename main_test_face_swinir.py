@@ -31,7 +31,7 @@ import cv2
 import glob
 import numpy as np
 import torch
-
+import argparse
 from utils.utils_alignfaces import warp_and_crop_face, get_reference_facial_points
 from utils import utils_image as util 
 
@@ -40,15 +40,19 @@ from models.network_swinir import SwinIR as net
 
 
 class faceenhancer(object):
-    def __init__(self, model_path='model_zoo/GPEN-512.pth', size=512, channel_multiplier=2):
+    def __init__(self, model_path, iter,  size=512):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model_path = model_path
         self.size = size
-        self.model =  net(upscale=2, in_chans=3, img_size=64, window_size=8,
+        self.model =  net(upscale=4, in_chans=3, img_size=64, window_size=8,
                         img_range=1., depths=[6, 6, 6, 6, 6, 6], embed_dim=180, num_heads=[6, 6, 6, 6, 6, 6],
                         mlp_ratio=2, upsampler='nearest+conv', resi_connection='1conv').to(self.device)
-        
-        self.model.load_state_dict(torch.load(self.model_path))
+        state_dict = torch.load(os.path.join(model_path, "%s_G.pth"%iter)) 
+        param_key = "params"
+        if param_key in state_dict.keys():
+            state_dict = state_dict[param_key]
+        self.model.load_state_dict(state_dict)
+        # self.model.load_network(os.path.join(model_path, "%s_E.pth"%iter), self.model.netE,  param_key='params')
         self.model.eval()
 
     def process(self, img):
@@ -56,15 +60,18 @@ class faceenhancer(object):
         img: uint8 RGB image, (W, H, 3)
         out: uint8 RGB image, (W, H, 3)
         '''
-        img = cv2.resize(img, (self.size, self.size))
-        img = util.uint2tensor4(img)
-        img = (img - 0.5) / 0.5
+        # img = cv2.resize(img, (self.size, self.size))
+        # img = util.uint2tensor4(img)
+        # img = (img - 0.5) / 0.5
+        img = util.uint2single(img)
+        img = util.single2tensor4(img)
+
         img = img.to(self.device)
 
         with torch.no_grad():
-            out, __ = self.model(img)
-
-        out = util.tensor2uint(out * 0.5 + 0.5)
+            out = self.model(img)
+        out = util.tensor2uint(out)
+        # out = util.tensor2uint(out * 0.5 + 0.5)
         return out
 
 
@@ -139,37 +146,52 @@ class faceenhancer_with_detection_alignment(object):
 
 if __name__=='__main__':
 
-    inputdir = os.path.join('testsets', 'real_faces')
-    outdir = os.path.join('testsets', 'real_faces_results')
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-i',
+        '--input',
+        type=str,
+        default='inputs/whole_imgs',
+        help='Input image or folder. Default: inputs/whole_imgs')
+    parser.add_argument('-o', '--output', type=str, default='results', help='Output folder. Default: results')
+    parser.add_argument('-v', '--version', type=str, default='full_base_x2_gan', help='Output folder. Default: results')
+    parser.add_argument('--iter', type=str, default='50000', help='Output folder. Default: results')
+    
+    args = parser.parse_args()
+
+    # inputdir = os.path.join('/data1/GazeData/MPIIRes', 'MPIIFaceGaze', args.input)
+    # outdir = os.path.join('/data1/GazeData/MPIIRes', args.output)
+    inputdir = args.input
+    outdir = args.output
     os.makedirs(outdir, exist_ok=True)
 
     # whether use the face detection&alignment or not
     need_face_detection = True
+    model_path = os.path.join('superresolution',args.version, "models")
 
-    if need_face_detection:
-        enhancer = faceenhancer_with_detection_alignment(model_path=os.path.join('model_zoo','GPEN-512.pth'), size=512, channel_multiplier=2)
-    else:
-        enhancer = faceenhancer(model_path=os.path.join('model_zoo','GPEN-512.pth'), size=512, channel_multiplier=2)
+    enhancer = faceenhancer(model_path=model_path, iter=args.iter, size=512)
 
     for idx, img_file in enumerate(util.get_image_paths(inputdir)):
         img_name, ext = os.path.splitext(os.path.basename(img_file))
         img_L = util.imread_uint(img_file, n_channels=3)
 
         print('{:->4d} --> {:<s}'.format(idx+1, img_name+ext))
+        # img_L = cv2.resize(img_L, (0,0), fx=2, fy=2)
 
-        img_L = cv2.resize(img_L, (0,0), fx=2, fy=2)
+        # if need_face_detection:
+        #     # do the enhancement
+        #     img_H, orig_faces, enhanced_faces = enhancer.process(img_L)
 
-        if need_face_detection:
+        #     util.imsave(np.hstack((img_L, img_H)), os.path.join(outdir, img_name+'_comparison.png'))
+        #     util.imsave(img_H, os.path.join(outdir, img_name+'_enhanced.png'))
+        #     for m, (ef, of) in enumerate(zip(enhanced_faces, orig_faces)):
+        #         of = cv2.resize(of, ef.shape[:2])
+        #         util.imsave(np.hstack((of, ef)), os.path.join(outdir, img_name+'_face%02d'%m+'.png'))
+        # else:
             # do the enhancement
-            img_H, orig_faces, enhanced_faces = enhancer.process(img_L)
+        img_L = cv2.resize(img_L, (112,112))
+        img_H = enhancer.process(img_L)
 
-            util.imsave(np.hstack((img_L, img_H)), os.path.join(outdir, img_name+'_comparison.png'))
-            util.imsave(img_H, os.path.join(outdir, img_name+'_enhanced.png'))
-            for m, (ef, of) in enumerate(zip(enhanced_faces, orig_faces)):
-                of = cv2.resize(of, ef.shape[:2])
-                util.imsave(np.hstack((of, ef)), os.path.join(outdir, img_name+'_face%02d'%m+'.png'))
-        else:
-            # do the enhancement
-            img_H = enhancer.process(img_L)
-
-            util.imsave(img_H, os.path.join(outdir, img_name+'_enhanced_without_detection.png'))
+        img_H = cv2.resize(img_H, (224,224))
+        # util.imsave(np.hstack((img_L, img_H)), os.path.join(outdir, img_name+'_comparison.png'))
+        util.imsave(img_H, os.path.join(outdir, img_name+'.png'))

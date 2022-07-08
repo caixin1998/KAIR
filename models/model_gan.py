@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.optim import lr_scheduler
 from torch.optim import Adam
 
-from models.select_network import define_G, define_D
+from models.select_network import define_G, define_D, define_Gaze
 from models.model_base import ModelBase
 from models.loss import GANLoss, PerceptualLoss
 from models.loss_ssim import SSIMLoss
@@ -25,6 +25,14 @@ class ModelGAN(ModelBase):
             self.netD = self.model_to_device(self.netD)
             if self.opt_train['E_decay'] > 0:
                 self.netE = define_G(opt).to(self.device).eval()
+
+        if "network_gaze" in self.opt:
+            self.netGaze = define_Gaze(opt)
+            self.load_network(self.opt.network_gaze["net_path"])
+            self.netGaze = self.model_to_device(self.netGaze)
+        
+        # if self.opt_train["gaze_weight"] > 0:
+
 
     """
     # ----------------------------------------
@@ -139,6 +147,9 @@ class ModelGAN(ModelBase):
             print('Do not use feature loss.')
             self.F_lossfn = None
 
+        if "gaze_weight" in self.opt_train:
+            self.gaze_loss_fn = nn.SmoothL1Loss().to(self.device)
+            self.gaze_weight = self.opt_train["gaze_weight"]
         # ------------------------------------
         # 3) D_loss
         # ------------------------------------
@@ -189,13 +200,17 @@ class ModelGAN(ModelBase):
         self.L = data['L'].to(self.device)
         if need_H:
             self.H = data['H'].to(self.device)
+        if "gaze" in data:
+            self.gaze = data["gaze"].to(self.device)
 
     # ----------------------------------------
     # feed L to netG and get E
     # ----------------------------------------
     def netG_forward(self):
         self.E = self.netG(self.L)
-
+        if "network_gaze" in self.opt:
+            self.pred_gaze = self.netGaze(self.E)
+            
     # ----------------------------------------
     # update parameters and get loss
     # ----------------------------------------
@@ -217,7 +232,9 @@ class ModelGAN(ModelBase):
             if self.opt_train['F_lossfn_weight'] > 0:
                 F_loss = self.F_lossfn_weight * self.F_lossfn(self.E, self.H)
                 loss_G_total += F_loss                 # 2) VGG feature loss
-
+            if "network_gaze" in self.opt and "gaze_weight" in self.opt_train:
+                gaze_loss = self.gaze_weight * self.gaze_loss_fn(self.pred_gaze, self.gaze)
+                loss_G_total += gaze_loss
             if self.opt['train']['gan_type'] in ['gan', 'lsgan', 'wgan', 'softplusgan']:
                 pred_g_fake = self.netD(self.E)
                 D_loss = self.D_lossfn_weight * self.D_lossfn(pred_g_fake, True)
@@ -276,6 +293,8 @@ class ModelGAN(ModelBase):
                 self.log_dict['G_loss'] = G_loss.item()
             if self.opt_train['F_lossfn_weight'] > 0:
                 self.log_dict['F_loss'] = F_loss.item()
+            if self.opt_train["gaze_weight"] > 0:
+                self.log_dict["gaze_loss"] = gaze_loss.item()
             self.log_dict['D_loss'] = D_loss.item()
 
         #self.log_dict['l_d_real'] = l_d_real.item()
