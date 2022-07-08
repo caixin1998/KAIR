@@ -172,7 +172,6 @@ if __name__=='__main__':
         model_path = os.path.join('/home1/caixin/SothisAI/KAIR/superresolution',args.version, "models")
     else:
         model_path = os.path.join('superresolution',args.version, "models")
-
     enhancer = faceenhancer(model_path=model_path, iter=args.iter, size=512)
 
     for idx, img_file in enumerate(util.get_image_paths(inputdir)):
