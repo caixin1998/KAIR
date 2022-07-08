@@ -44,7 +44,7 @@ class faceenhancer(object):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model_path = model_path
         self.size = size
-        self.model =  net(upscale=4, in_chans=3, img_size=64, window_size=8,
+        self.model =  net(upscale=2, in_chans=3, img_size=64, window_size=8,
                         img_range=1., depths=[6, 6, 6, 6, 6, 6], embed_dim=180, num_heads=[6, 6, 6, 6, 6, 6],
                         mlp_ratio=2, upsampler='nearest+conv', resi_connection='1conv').to(self.device)
         state_dict = torch.load(os.path.join(model_path, "%s_G.pth"%iter)) 
@@ -156,6 +156,7 @@ if __name__=='__main__':
     parser.add_argument('-o', '--output', type=str, default='results', help='Output folder. Default: results')
     parser.add_argument('-v', '--version', type=str, default='full_base_x2_gan', help='Output folder. Default: results')
     parser.add_argument('--iter', type=str, default='50000', help='Output folder. Default: results')
+    parser.add_argument('--sothis', type=bool, default=0, help='Output folder. Default: results')
     
     args = parser.parse_args()
 
@@ -167,7 +168,10 @@ if __name__=='__main__':
 
     # whether use the face detection&alignment or not
     need_face_detection = True
-    model_path = os.path.join('superresolution',args.version, "models")
+    if args.sothis:
+        model_path = os.path.join('/home1/caixin/SothisAI/KAIR/superresolution',args.version, "models")
+    else:
+        model_path = os.path.join('superresolution',args.version, "models")
 
     enhancer = faceenhancer(model_path=model_path, iter=args.iter, size=512)
 
@@ -189,7 +193,7 @@ if __name__=='__main__':
         #         util.imsave(np.hstack((of, ef)), os.path.join(outdir, img_name+'_face%02d'%m+'.png'))
         # else:
             # do the enhancement
-        img_L = cv2.resize(img_L, (112,112))
+        # img_L = cv2.resize(img_L, (112,112))
         img_H = enhancer.process(img_L)
 
         img_H = cv2.resize(img_H, (224,224))
