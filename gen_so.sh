@@ -15,7 +15,7 @@ for i in {00..14}
     CUDA_VISIBLE_DEVICES=`expr $i % 4` python main_test_face_swinir.py -i /public/caixin/GazeData/MPIIFaceGaze/Image/p$i/face -o /public/caixin/GazeData/MPIIRes/$1/Image/p$i/face --iter $2   &
 
     echo $i
-    [ `expr $i` -eq 7 ]  && wait
+    [ `expr $i % 4` -eq 3 ]  && wait
   done
 wait
 
